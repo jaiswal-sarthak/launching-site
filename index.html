@@ -107,6 +107,50 @@
             margin-right: auto;
         }
 
+        .payload-hint {
+            color: #aaa;
+            font-size: 0.9em;
+            margin-top: 15px;
+            margin-bottom: 15px;
+            font-weight: 300;
+            letter-spacing: 1.5px;
+            opacity: 0.8;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+            padding: 0 20px;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            z-index: 10;
+            color: #888;
+            font-size: 0.9em;
+            font-weight: 300;
+            letter-spacing: 2px;
+            opacity: 0.6;
+        }
+
+        .footer-brand {
+            color: #aaa;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .footer-brand:hover {
+            opacity: 1;
+        }
+
+        .footer-separator {
+            margin: 0 10px;
+            opacity: 0.5;
+        }
+
         .launch-button {
             background: #ff0000;
             color: white;
@@ -211,6 +255,9 @@
                 />
             </div>
             <div id="errorMessage" class="error-message hidden"></div>
+            <div class="payload-hint" id="payloadHint">
+                Supports <strong>?launch=</strong> and <strong>/launch=</strong> (and <strong>#launch=</strong>) · Press Enter or hit LAUNCH.
+            </div>
             <button class="launch-button" id="launchBtn">
                 LAUNCH<br>NOW
             </button>
@@ -219,6 +266,12 @@
             <div class="countdown" id="countdown">5</div>
         </div>
     </div>
+
+    <footer class="footer">
+        <a href="#" class="footer-brand">NXT SPACENOS Global</a>
+        <span class="footer-separator">·</span>
+        <span>Launch systems for bold ideas</span>
+    </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
@@ -289,27 +342,35 @@
              */
             extractPayload() {
                 // Method 1: URL query parameter (primary for Vercel)
-                // Support multiple parameter names: payload, url, target, dest, destination
+                // Support multiple parameter names: launch (primary), payload, url, target, dest, destination
                 const urlParams = new URLSearchParams(window.location.search);
-                let payload = urlParams.get('payload') || 
+                let payload = urlParams.get('launch') || 
+                             urlParams.get('payload') || 
                              urlParams.get('url') || 
                              urlParams.get('target') || 
                              urlParams.get('dest') || 
                              urlParams.get('destination');
                 
-                // Also check full URL path for Vercel routing (e.g., /launch?payload=...)
+                // Also check full URL path for Vercel routing (e.g., /launch=... or /launch?launch=...)
                 if (!payload) {
-                    // Handle cases where payload might be in the path
-                    const pathMatch = window.location.pathname.match(/[?&]payload=([^&]+)/);
-                    if (pathMatch) {
-                        payload = pathMatch[1];
+                    // Handle cases where payload might be in the path like /launch=https://example.com
+                    const pathLaunchMatch = window.location.pathname.match(/\/launch=([^/?&]+)/);
+                    if (pathLaunchMatch) {
+                        payload = pathLaunchMatch[1];
+                    } else {
+                        // Handle cases like /launch?launch=...
+                        const pathMatch = window.location.pathname.match(/[?&](launch|payload)=([^&]+)/);
+                        if (pathMatch) {
+                            payload = pathMatch[2];
+                        }
                     }
                 }
                 
                 // Method 2: URL hash parameter
                 if (!payload) {
                     const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                    payload = hashParams.get('payload') || 
+                    payload = hashParams.get('launch') || 
+                             hashParams.get('payload') || 
                              hashParams.get('url') || 
                              hashParams.get('target');
                 }
@@ -455,7 +516,7 @@
                         return false;
                     }
                 } else {
-                    const errorMsg = 'No payload provided. Use URL parameter: ?payload=https://example.com';
+                    const errorMsg = 'No payload provided. Use URL parameter: ?launch=https://example.com';
                     this.showError(errorMsg);
                     this.destination.textContent = 'No Destination';
                     console.warn('No payload found in URL parameters');
@@ -469,6 +530,7 @@
             showError(message) {
                 this.errorMessage.textContent = message;
                 this.errorMessage.classList.remove('hidden');
+                // Keep hint visible even with error - it's helpful information
             }
 
             /**
@@ -744,6 +806,16 @@
                 return;
             }
             startCountdown();
+        });
+
+        // Support Enter key to launch
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && payloadInitialized && payloadManager.getPayload()) {
+                if (!countdownScreen.classList.contains('hidden')) {
+                    return; // Don't trigger if countdown is active
+                }
+                startCountdown();
+            }
         });
 
         function startCountdown() {
